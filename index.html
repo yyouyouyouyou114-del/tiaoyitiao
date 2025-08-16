@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>跳一跳 - 森林主题</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #2c5530;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        
+        #gameContainer {
+            position: relative;
+            background: #87CEEB;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        #gameCanvas {
+            display: block;
+            border-radius: 10px;
+        }
+        
+        .game-info {
+            position: absolute;
+            top: -50px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .audio-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .audio-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .audio-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .audio-btn.active {
+            background: #4CAF50;
+        }
+        
+        .audio-btn.disabled {
+            background: #F44336;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div class="game-info">🐿️ 森林跳一跳 🌲</div>
+        <div class="audio-controls">
+            <button class="audio-btn disabled" id="audioStatusBtn" onclick="toggleAudioSystem()">🔇 音频已禁用</button>
+            <button class="audio-btn" id="audioTestBtn" onclick="testAudio()">🎵 测试音频</button>
+        </div>
+        <canvas id="gameCanvas" width="375" height="667"></canvas>
+        <div class="loading" id="loadingText">游戏加载中...</div>
+    </div>
+    
+    <script>
+        // Web环境适配
+        window.GameGlobal = {
+            canvas: document.getElementById('gameCanvas')
+        };
+        
+        // 模拟微信小游戏API
+        window.wx = {
+            createCanvas: () => document.getElementById('gameCanvas'),
+            getSystemInfoSync: () => ({
+                screenWidth: window.innerWidth,
+                screenHeight: window.innerHeight
+            }),
+            onTouchStart: () => {}, // 空函数，防止调用错误
+            onTouchEnd: () => {},   // 空函数，防止调用错误
+            vibrateShort: () => {}, // 空函数，防止调用错误
+            createWebAudioContext: () => {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                return AudioContextClass ? new AudioContextClass() : null;
+            }
+        };
+        
+        // 模拟require函数
+        window.require = function(path) {
+            if (path === './js/audio_manager.js') {
+                return { default: window.AudioManager };
+            }
+            if (path === './js/jump_game.js') {
+                return { default: window.JumpGame };
+            }
+            return {};
+        };
+        
+        // 全局游戏实例
+        let gameInstance = null;
+        
+        // 脚本加载完成后的回调
+        function initGame() {
+            try {
+                document.getElementById('loadingText').style.display = 'none';
+                
+                // 创建游戏实例
+                gameInstance = new window.JumpGame();
+                
+                // 启动游戏
+                gameInstance.init();
+                
+                // 更新音频状态显示
+                updateAudioStatus();
+            } catch (error) {
+                console.error('游戏启动失败:', error);
+                document.getElementById('loadingText').textContent = '游戏启动失败，请刷新页面重试';
+            }
+        }
+        
+        // 更新音频状态显示
+        function updateAudioStatus() {
+            const statusBtn = document.getElementById('audioStatusBtn');
+            if (gameInstance && gameInstance.audioManager) {
+                if (gameInstance.audioManager.soundEnabled) {
+                    statusBtn.textContent = '🔊 音频已启用';
+                    statusBtn.className = 'audio-btn active';
+                } else {
+                    statusBtn.textContent = '🔇 音频已禁用';
+                    statusBtn.className = 'audio-btn disabled';
+                }
+            } else {
+                statusBtn.textContent = '🔇 音频不可用';
+                statusBtn.className = 'audio-btn disabled';
+            }
+        }
+        
+        // 切换音频系统
+        async function toggleAudioSystem() {
+            if (!gameInstance) {
+                alert('游戏尚未初始化');
+                return;
+            }
+            
+            if (!gameInstance.audioManager) {
+                // 尝试重新初始化音频管理器
+                try {
+                    if (window.AudioManager) {
+                        gameInstance.audioManager = new window.AudioManager();
+                        console.log('AudioManager重新初始化成功');
+                    }
+                } catch (error) {
+                    console.error('AudioManager初始化失败:', error);
+                    alert('音频系统初始化失败');
+                    return;
+                }
+            }
+            
+            if (gameInstance.audioManager) {
+                // 恢复音频上下文
+                await gameInstance.audioManager.resumeAudioContext();
+                
+                // 切换音效开关
+                gameInstance.audioManager.toggleSound();
+                
+                // 更新显示
+                updateAudioStatus();
+                
+                // 播放测试音效
+                if (gameInstance.audioManager.soundEnabled) {
+                    gameInstance.audioManager.playJumpSound();
+                }
+            }
+        }
+        
+        // 测试音频功能
+        async function testAudio() {
+            if (!gameInstance || !gameInstance.audioManager) {
+                alert('音频系统不可用');
+                return;
+            }
+            
+            try {
+                // 恢复音频上下文
+                await gameInstance.audioManager.resumeAudioContext();
+                
+                // 播放测试音效序列
+                gameInstance.audioManager.playJumpSound();
+                
+                setTimeout(() => {
+                    gameInstance.audioManager.playLandingSound();
+                }, 300);
+                
+                setTimeout(() => {
+                    gameInstance.audioManager.playPerfectLandingSound();
+                }, 600);
+                
+                // 更新状态
+                updateAudioStatus();
+            } catch (error) {
+                console.error('音频测试失败:', error);
+                alert('音频测试失败: ' + error.message);
+            }
+        }
+        
+        // 脚本加载计数器
+        let scriptsLoaded = 0;
+        const totalScripts = 2;
+        
+        function onScriptLoad() {
+            scriptsLoaded++;
+            if (scriptsLoaded === totalScripts) {
+                setTimeout(initGame, 100);
+            }
+        }
+    </script>
+    
+    <!-- 游戏脚本 -->
+    <script src="js/audio_manager.js" onload="onScriptLoad()"></script>
+    <script src="js/jump_game.js" onload="onScriptLoad()"></script>
+</body>
+</html>

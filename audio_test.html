@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音频功能测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #2c5530;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #87CEEB;
+            margin-bottom: 30px;
+        }
+        
+        .button {
+            background: #FF6B6B;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            margin: 10px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .button:hover {
+            background: #FF5252;
+            transform: translateY(-2px);
+        }
+        
+        .button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            font-family: monospace;
+            text-align: left;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .success { color: #4CAF50; }
+        .warning { color: #FF9800; }
+        .error { color: #F44336; }
+        
+        .volume-control {
+            margin: 20px 0;
+        }
+        
+        .volume-control input {
+            width: 200px;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎵 音频功能测试</h1>
+        
+        <div class="status" id="status">
+            <div>等待初始化...</div>
+        </div>
+        
+        <div>
+            <button class="button" id="initBtn" onclick="initAudio()">初始化音频</button>
+            <button class="button" id="resumeBtn" onclick="resumeAudio()" disabled>恢复音频上下文</button>
+        </div>
+        
+        <div>
+            <button class="button" onclick="testJumpSound()" disabled id="jumpBtn">测试跳跃音效</button>
+            <button class="button" onclick="testLandingSound()" disabled id="landingBtn">测试着地音效</button>
+            <button class="button" onclick="testPerfectSound()" disabled id="perfectBtn">测试完美着地</button>
+            <button class="button" onclick="testGameOverSound()" disabled id="gameOverBtn">测试游戏结束</button>
+        </div>
+        
+        <div>
+            <button class="button" onclick="startBgMusic()" disabled id="bgStartBtn">开始背景音乐</button>
+            <button class="button" onclick="stopBgMusic()" disabled id="bgStopBtn">停止背景音乐</button>
+        </div>
+        
+        <div class="volume-control">
+            <label>音量控制:</label>
+            <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="0.5" onchange="setVolume(this.value)" disabled>
+            <span id="volumeValue">50%</span>
+        </div>
+        
+        <div>
+            <button class="button" onclick="toggleSound()" disabled id="toggleBtn">切换音效开关</button>
+        </div>
+        
+        <div>
+            <button class="button" onclick="runFullTest()">运行完整测试</button>
+        </div>
+    </div>
+
+    <script src="js/audio_manager.js"></script>
+    <script>
+        let audioManager = null;
+        const statusDiv = document.getElementById('status');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'success' ? 'success' : '';
+            statusDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            statusDiv.scrollTop = statusDiv.scrollHeight;
+        }
+        
+        function enableButtons() {
+            const buttons = ['resumeBtn', 'jumpBtn', 'landingBtn', 'perfectBtn', 'gameOverBtn', 'bgStartBtn', 'bgStopBtn', 'volumeSlider', 'toggleBtn'];
+            buttons.forEach(id => {
+                document.getElementById(id).disabled = false;
+            });
+        }
+        
+        function initAudio() {
+            try {
+                log('正在初始化AudioManager...', 'info');
+                audioManager = new AudioManager();
+                log('AudioManager创建成功', 'success');
+                
+                if (audioManager.audioContext) {
+                    log(`AudioContext状态: ${audioManager.audioContext.state}`, 'info');
+                    log(`音效启用状态: ${audioManager.soundEnabled}`, audioManager.soundEnabled ? 'success' : 'warning');
+                    enableButtons();
+                    document.getElementById('initBtn').disabled = true;
+                } else {
+                    log('AudioContext创建失败', 'error');
+                }
+            } catch (error) {
+                log(`初始化失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function resumeAudio() {
+            if (!audioManager) {
+                log('请先初始化AudioManager', 'warning');
+                return;
+            }
+            
+            try {
+                log('正在恢复AudioContext...', 'info');
+                await audioManager.resumeAudioContext();
+                log(`AudioContext状态: ${audioManager.audioContext.state}`, 'success');
+            } catch (error) {
+                log(`恢复失败: ${error.message}`, 'error');
+            }
+        }
+        
+        function testJumpSound() {
+            if (!audioManager) return;
+            log('播放跳跃音效', 'info');
+            audioManager.playJumpSound();
+        }
+        
+        function testLandingSound() {
+            if (!audioManager) return;
+            log('播放着地音效', 'info');
+            audioManager.playLandingSound();
+        }
+        
+        function testPerfectSound() {
+            if (!audioManager) return;
+            log('播放完美着地音效', 'info');
+            audioManager.playPerfectLandingSound();
+        }
+        
+        function testGameOverSound() {
+            if (!audioManager) return;
+            log('播放游戏结束音效', 'info');
+            audioManager.playGameOverSound();
+        }
+        
+        function startBgMusic() {
+            if (!audioManager) return;
+            log('开始播放背景音乐', 'info');
+            audioManager.startBackgroundMusic();
+        }
+        
+        function stopBgMusic() {
+            if (!audioManager) return;
+            log('停止背景音乐', 'info');
+            audioManager.stopBackgroundMusic();
+        }
+        
+        function setVolume(value) {
+            if (!audioManager) return;
+            audioManager.setVolume(parseFloat(value));
+            document.getElementById('volumeValue').textContent = Math.round(value * 100) + '%';
+            log(`音量设置为: ${Math.round(value * 100)}%`, 'info');
+        }
+        
+        function toggleSound() {
+            if (!audioManager) return;
+            audioManager.toggleSound();
+            log(`音效${audioManager.soundEnabled ? '已启用' : '已禁用'}`, audioManager.soundEnabled ? 'success' : 'warning');
+        }
+        
+        async function runFullTest() {
+            log('=== 开始完整音频测试 ===', 'info');
+            
+            if (!audioManager) {
+                initAudio();
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            if (audioManager && audioManager.audioContext) {
+                await resumeAudio();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                log('测试所有音效...', 'info');
+                testJumpSound();
+                await new Promise(resolve => setTimeout(resolve, 800));
+                
+                testLandingSound();
+                await new Promise(resolve => setTimeout(resolve, 800));
+                
+                testPerfectSound();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                testGameOverSound();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                log('测试背景音乐...', 'info');
+                startBgMusic();
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                stopBgMusic();
+                log('=== 完整测试结束 ===', 'success');
+            } else {
+                log('音频初始化失败，无法进行测试', 'error');
+            }
+        }
+        
+        // 页面加载完成后的提示
+        window.addEventListener('load', () => {
+            log('音频测试页面已加载', 'success');
+            log('请点击"初始化音频"开始测试', 'info');
+            log('注意: 浏览器需要用户交互后才能播放音频', 'warning');
+        });
+    </script>
+</body>
+</html>
