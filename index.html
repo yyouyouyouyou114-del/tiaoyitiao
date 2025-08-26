@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>跳一跳 - 森林主题</title>
     <style>
         body {
@@ -14,6 +14,10 @@
             align-items: center;
             min-height: 100vh;
             font-family: Arial, sans-serif;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
         }
         
         #gameContainer {
@@ -21,23 +25,108 @@
             background: #87CEEB;
             border-radius: 10px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            width: 100vw;
+            height: 100vh;
+            max-width: 100%;
+            max-height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         
         #gameCanvas {
             display: block;
             border-radius: 10px;
+            max-width: 100%;
+            max-height: 100%;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        /* 移动设备优化 */
+        @media (max-width: 768px) {
+            #gameContainer {
+                border-radius: 0;
+                width: 100vw;
+                height: 100vh;
+            }
+            
+            #gameCanvas {
+                border-radius: 0;
+            }
+        }
+        
+        /* 横屏优化 */
+        @media (orientation: landscape) {
+            body {
+                height: 100vh;
+                width: 100vw;
+            }
+            
+            #gameContainer {
+                width: 100vw;
+                height: 100vh;
+                border-radius: 0;
+            }
+            
+            #gameCanvas {
+                border-radius: 0;
+                width: 100vw;
+                height: 100vh;
+            }
+        }
+        
+        /* 桌面横屏优化 */
+         @media (min-width: 1024px) and (orientation: landscape) {
+             #gameContainer {
+                 border-radius: 10px;
+                 max-width: 95vw;
+                 max-height: 95vh;
+             }
+             
+             #gameCanvas {
+                 border-radius: 10px;
+             }
+            }
+        }
+        
+        /* 横屏模式优化 */
+        @media (orientation: landscape) and (max-height: 600px) {
+            .game-info {
+                top: -30px !important;
+                font-size: 18px !important;
+            }
+            
+            .audio-controls {
+                top: 5px !important;
+                right: 5px !important;
+            }
+            
+            .audio-btn {
+                padding: 4px 8px !important;
+                font-size: 10px !important;
+            }
         }
         
         .game-info {
             position: absolute;
-            top: -50px;
+            top: 20px;
             left: 0;
             right: 0;
-            text-align: center;
-            color: white;
-            font-size: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #FFFFFF;
+            font-size: 32px;
             font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 100;
+            padding: 10px;
+        }
+        
+        .game-info .title-text {
+            text-shadow: none;
         }
         
         .loading {
@@ -53,7 +142,7 @@
         .audio-controls {
             position: absolute;
             top: 10px;
-            right: 10px;
+            right: 20px;
             display: flex;
             gap: 10px;
         }
@@ -84,12 +173,15 @@
 </head>
 <body>
     <div id="gameContainer">
-        <div class="game-info">🐿️ 森林跳一跳 🌲</div>
+        <div class="game-info">
+            <img src="images/squirrel.svg" alt="松鼠" style="width: 60px; height: 60px; vertical-align: bottom; margin-right: -8px; margin-bottom: 5px;">
+            <span class="title-text" style="color: #2c5530; vertical-align: bottom;">森林跳一跳</span>
+            <span style="margin-left: 5px; vertical-align: bottom;">🌲</span>
+        </div>
         <div class="audio-controls">
             <button class="audio-btn disabled" id="audioStatusBtn" onclick="toggleAudioSystem()">🔇 音频已禁用</button>
-            <button class="audio-btn" id="audioTestBtn" onclick="testAudio()">🎵 测试音频</button>
         </div>
-        <canvas id="gameCanvas" width="375" height="667"></canvas>
+        <canvas id="gameCanvas"></canvas>
         <div class="loading" id="loadingText">游戏加载中...</div>
     </div>
     

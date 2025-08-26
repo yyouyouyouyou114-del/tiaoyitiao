@@ -20,7 +20,7 @@ const CONFIG = {
   DIFFICULTY_FACTOR: 1.5,
   
   // 玩家参数
-  PLAYER_SIZE: 30,
+  PLAYER_SIZE: 70,
   PLAYER_COLOR: '#FF6B6B',
   
   // 游戏参数
@@ -106,36 +106,145 @@ class JumpGame {
     this.canvas = GameGlobal.canvas;
     this.ctx = this.canvas.getContext('2d');
     
-    // Web环境适配
+    // 获取设备像素比，确保高清显示
+    const dpr = window.devicePixelRatio || 1;
+    
+    // 计算最佳画布尺寸
+    let canvasWidth, canvasHeight;
+    
     if (typeof wx !== 'undefined' && wx.getSystemInfoSync) {
       // 微信小游戏环境
       const systemInfo = wx.getSystemInfoSync();
-      this.canvas.width = Math.max(systemInfo.screenWidth, systemInfo.screenHeight);
-      this.canvas.height = Math.min(systemInfo.screenWidth, systemInfo.screenHeight);
+      canvasWidth = systemInfo.screenWidth;
+      canvasHeight = systemInfo.screenHeight;
     } else {
-      // Web浏览器环境，使用预设尺寸
-      this.canvas.width = this.canvas.width || 375;
-      this.canvas.height = this.canvas.height || 667;
+      // Web浏览器环境，完全自适应屏幕
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      
+      // 判断设备方向和类型
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isLandscape = screenWidth > screenHeight;
+      
+      if (isMobile) {
+        // 移动设备：完全自适应，支持横屏和竖屏
+        canvasWidth = screenWidth;
+        canvasHeight = screenHeight;
+        
+        // 横屏时调整游戏布局参数
+        if (isLandscape) {
+          // 横屏模式：增加平台间距，调整跳跃参数
+          CONFIG.BASE_DISTANCE = 120;
+          CONFIG.PLATFORM_WIDTH = 100;
+          CONFIG.JUMP_FORCE = 18;
+        } else {
+          // 竖屏模式：恢复默认参数
+          CONFIG.BASE_DISTANCE = 100;
+          CONFIG.PLATFORM_WIDTH = 80;
+          CONFIG.JUMP_FORCE = 15;
+        }
+      } else {
+        // 桌面设备：自适应窗口大小
+        canvasWidth = screenWidth;
+        canvasHeight = screenHeight;
+        
+        // 桌面横屏优化
+        if (isLandscape && screenWidth > 1024) {
+          CONFIG.BASE_DISTANCE = 140;
+          CONFIG.PLATFORM_WIDTH = 120;
+          CONFIG.JUMP_FORCE = 20;
+        }
+      }
     }
     
-    // 更新地面高度为屏幕高度的80%
-    CONFIG.GROUND_Y = this.canvas.height * 0.8;
+    // 设置画布尺寸
+    this.canvas.width = canvasWidth * dpr;
+    this.canvas.height = canvasHeight * dpr;
+    
+    // 设置CSS尺寸
+    this.canvas.style.width = canvasWidth + 'px';
+    this.canvas.style.height = canvasHeight + 'px';
+    
+    // 缩放绘图上下文以适应设备像素比
+    this.ctx.scale(dpr, dpr);
+    
+    // 存储逻辑尺寸供游戏逻辑使用
+    this.logicalWidth = canvasWidth;
+    this.logicalHeight = canvasHeight;
+    
+    // 根据屏幕方向调整地面高度
+    const isLandscape = canvasWidth > canvasHeight;
+    CONFIG.GROUND_Y = isLandscape ? this.logicalHeight * 0.7 : this.logicalHeight * 0.8;
+    
+    // 监听窗口大小变化和屏幕方向变化
+    this.setupResizeHandler();
   }
 
+  /**
+   * 设置窗口大小变化监听
+   */
+  setupResizeHandler() {
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        this.handleResize();
+      }, 250);
+    });
+    
+    // 监听设备方向变化
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => {
+        this.handleResize();
+      }, 500);
+    });
+  }
+  
+  /**
+   * 处理窗口大小变化
+   */
+  handleResize() {
+    const oldWidth = this.logicalWidth;
+    const oldHeight = this.logicalHeight;
+    
+    // 重新设置画布
+    this.setupCanvas();
+    
+    // 调整游戏对象位置
+    if (this.player && oldWidth && oldHeight) {
+      const scaleX = this.logicalWidth / oldWidth;
+      const scaleY = this.logicalHeight / oldHeight;
+      
+      // 调整玩家位置
+      this.player.x *= scaleX;
+      this.player.y *= scaleY;
+      
+      // 调整平台位置
+      this.platforms.forEach(platform => {
+        platform.x *= scaleX;
+        platform.y *= scaleY;
+      });
+      
+      // 调整摄像机位置
+      this.camera.x *= scaleX;
+      this.camera.y *= scaleY;
+    }
+  }
+  
   /**
    * 初始化游戏对象
    */
   initGameObjects() {
     // 创建玩家
     this.player = new Player(
-      this.canvas.width / 2 - CONFIG.PLAYER_SIZE / 2,
+      this.logicalWidth / 2 - CONFIG.PLAYER_SIZE / 2,
       CONFIG.GROUND_Y - CONFIG.PLAYER_SIZE
     );
     
     // 创建初始平台
     this.platforms = [
-      new Platform(this.canvas.width / 2 - CONFIG.PLATFORM_WIDTH / 2, CONFIG.GROUND_Y, PLATFORM_TYPE.NORMAL),
-      new Platform(this.canvas.width / 2 + 150, CONFIG.GROUND_Y, PLATFORM_TYPE.NORMAL)
+      new Platform(this.logicalWidth / 2 - CONFIG.PLATFORM_WIDTH / 2, CONFIG.GROUND_Y, PLATFORM_TYPE.NORMAL),
+      new Platform(this.logicalWidth / 2 + 150, CONFIG.GROUND_Y, PLATFORM_TYPE.NORMAL)
     ];
     
     // 重置游戏数据
@@ -380,7 +489,7 @@ class JumpGame {
       return;
     }
     
-    const targetX = this.player.x - this.canvas.width / 2;
+    const targetX = this.player.x - this.logicalWidth / 2;
     this.camera.x += (targetX - this.camera.x) * 0.1;
   }
 
@@ -392,7 +501,7 @@ class JumpGame {
     const rightmostX = lastPlatform.x;
     
     // 如果最右边的平台距离摄像机不够远，生成新平台
-    if (rightmostX < this.camera.x + this.canvas.width + 200) {
+    if (rightmostX < this.camera.x + this.logicalWidth + 200) {
       const newX = rightmostX + CONFIG.BASE_DISTANCE + Math.random() * 100 + this.score * CONFIG.DIFFICULTY_FACTOR;
       const type = this.getRandomPlatformType();
       this.platforms.push(new Platform(newX, CONFIG.GROUND_Y, type));
@@ -441,7 +550,7 @@ class JumpGame {
    */
   render() {
     // 清空画布
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
     
     // 保存上下文
     this.ctx.save();
@@ -483,7 +592,7 @@ class JumpGame {
    */
   renderBackground() {
     // 森林天空渐变背景
-    const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+    const gradient = this.ctx.createLinearGradient(0, 0, 0, this.logicalHeight);
     gradient.addColorStop(0, '#87CEEB');  // 天空蓝
     gradient.addColorStop(0.3, '#98FB98'); // 浅绿
     gradient.addColorStop(1, '#228B22');   // 森林绿
@@ -492,9 +601,12 @@ class JumpGame {
     this.ctx.fillRect(
       this.camera.x - 100, 
       this.camera.y - 100, 
-      this.canvas.width + 200, 
-      this.canvas.height + 200
+      this.logicalWidth + 200,
+      this.logicalHeight + 200
     );
+    
+    // 绘制白云
+    this.renderClouds();
     
     // 绘制远景树木
     this.renderBackgroundTrees();
@@ -502,8 +614,14 @@ class JumpGame {
     // 绘制阳光效果
     this.renderSunlight();
     
+    // 绘制飞舞的蝴蝶
+    this.renderButterflies();
+    
     // 绘制飘落的叶子
     this.renderFloatingLeaves();
+    
+    // 绘制气泡
+    this.renderBubbles();
   }
   
   /**
@@ -512,25 +630,32 @@ class JumpGame {
   renderBackgroundTrees() {
     const treeSpacing = 150;
     const startX = Math.floor((this.camera.x - 200) / treeSpacing) * treeSpacing;
+    const time = Date.now() * 0.001; // 生长时间因子
     
-    for (let x = startX; x < this.camera.x + this.canvas.width + 200; x += treeSpacing) {
-      const treeHeight = 80 + Math.sin(x * 0.01) * 20;
-      const treeY = this.canvas.height - 50;
+    for (let x = startX; x < this.camera.x + this.logicalWidth + 200; x += treeSpacing) {
+      const treeHeight = 40 + Math.random() * 30;
+      // 让树木跟随相机，显示在屏幕底部
+      const treeY = this.camera.y + this.logicalHeight - 50;
       
       // 树干
       this.ctx.fillStyle = '#8B4513';
-      this.ctx.fillRect(x - this.camera.x, treeY - treeHeight * 0.3, 8, treeHeight * 0.3);
+      this.ctx.fillRect(x, treeY - treeHeight * 0.3, 8, treeHeight * 0.3);
+      
+      // 树冠生长效果 - 基于时间和位置的动态大小
+      const growthFactor = 1 + Math.sin(time + x * 0.01) * 0.3; // 生长因子
+      const crownRadius = treeHeight * 0.4 * growthFactor;
+      const highlightRadius = treeHeight * 0.2 * growthFactor;
       
       // 树冠
       this.ctx.fillStyle = '#228B22';
       this.ctx.beginPath();
-      this.ctx.arc(x - this.camera.x + 4, treeY - treeHeight * 0.5, treeHeight * 0.4, 0, Math.PI * 2);
+      this.ctx.arc(x + 4, treeY - treeHeight * 0.5, crownRadius, 0, Math.PI * 2);
       this.ctx.fill();
       
       // 树冠高光
       this.ctx.fillStyle = '#32CD32';
       this.ctx.beginPath();
-      this.ctx.arc(x - this.camera.x + 2, treeY - treeHeight * 0.6, treeHeight * 0.2, 0, Math.PI * 2);
+      this.ctx.arc(x + 2, treeY - treeHeight * 0.6, highlightRadius, 0, Math.PI * 2);
       this.ctx.fill();
     }
   }
@@ -539,10 +664,14 @@ class JumpGame {
    * 渲染阳光效果
    */
   renderSunlight() {
+    // 太阳位置调整，避免与音频按钮重叠
+    const sunX = this.logicalWidth - 80;
+    const sunY = 120; // 从60调整到120，向下移动60像素
+    
     // 太阳
     this.ctx.fillStyle = '#FFD700';
     this.ctx.beginPath();
-    this.ctx.arc(this.canvas.width - 80, 60, 25, 0, Math.PI * 2);
+    this.ctx.arc(sunX, sunY, 25, 0, Math.PI * 2);
     this.ctx.fill();
     
     // 阳光光线
@@ -550,10 +679,10 @@ class JumpGame {
     this.ctx.lineWidth = 2;
     for (let i = 0; i < 8; i++) {
       const angle = (i * Math.PI * 2) / 8;
-      const startX = this.canvas.width - 80 + Math.cos(angle) * 35;
-      const startY = 60 + Math.sin(angle) * 35;
-      const endX = this.canvas.width - 80 + Math.cos(angle) * 50;
-      const endY = 60 + Math.sin(angle) * 50;
+      const startX = sunX + Math.cos(angle) * 35;
+      const startY = sunY + Math.sin(angle) * 35;
+      const endX = sunX + Math.cos(angle) * 50;
+      const endY = sunY + Math.sin(angle) * 50;
       
       this.ctx.beginPath();
       this.ctx.moveTo(startX, startY);
@@ -569,17 +698,174 @@ class JumpGame {
     const time = Date.now() * 0.001;
     
     for (let i = 0; i < 5; i++) {
-      const x = (this.camera.x + i * 200 + Math.sin(time + i) * 50) % (this.canvas.width + 100);
-      const y = 50 + Math.sin(time * 0.5 + i) * 30 + (time * 20 + i * 50) % this.canvas.height;
+      const x = this.camera.x + i * 200 + Math.sin(time + i) * 50;
+      const y = this.camera.y + 150 + Math.sin(time * 0.5 + i) * 30;
       
-      // 叶子
+      // 叶子 - 增大尺寸
       this.ctx.fillStyle = i % 2 === 0 ? '#228B22' : '#32CD32';
       this.ctx.save();
-      this.ctx.translate(x - this.camera.x, y);
+      this.ctx.translate(x, y);
       this.ctx.rotate(time + i);
       this.ctx.beginPath();
-      this.ctx.ellipse(0, 0, 3, 6, 0, 0, Math.PI * 2);
+      this.ctx.ellipse(0, 0, 8, 15, 0, 0, Math.PI * 2);
       this.ctx.fill();
+      this.ctx.restore();
+    }
+  }
+
+  /**
+   * 渲染白云
+   */
+  renderClouds() {
+    const time = Date.now() * 0.0005; // 慢速移动
+    
+    for (let i = 0; i < 4; i++) {
+      const cloudX = this.camera.x + i * 300 + time * 30 + i * 100;
+      const cloudY = 80 + Math.sin(time + i) * 20;
+      
+      // 绘制云朵
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      
+      // 云朵由多个圆形组成
+      const cloudParts = [
+        { x: cloudX, y: cloudY, radius: 25 },
+        { x: cloudX + 20, y: cloudY - 5, radius: 30 },
+        { x: cloudX + 45, y: cloudY, radius: 25 },
+        { x: cloudX + 25, y: cloudY + 15, radius: 20 },
+        { x: cloudX + 10, y: cloudY + 10, radius: 18 }
+      ];
+      
+      cloudParts.forEach(part => {
+        this.ctx.beginPath();
+        this.ctx.arc(part.x, part.y, part.radius, 0, Math.PI * 2);
+        this.ctx.fill();
+      });
+    }
+  }
+
+  /**
+   * 渲染气泡
+   */
+  renderBubbles() {
+    const time = Date.now() * 0.002;
+    
+    for (let i = 0; i < 8; i++) {
+      const bubbleX = this.camera.x + i * 120 + Math.sin(time * 0.8 + i) * 40;
+      const bubbleY = this.camera.y + 300 + Math.sin(time * 0.5 + i) * 100;
+      const bubbleSize = 8 + Math.sin(time * 2 + i) * 4;
+      
+      // 气泡渐变效果
+      const gradient = this.ctx.createRadialGradient(
+        bubbleX, bubbleY, 0,
+        bubbleX, bubbleY, bubbleSize
+      );
+      gradient.addColorStop(0, 'rgba(173, 216, 230, 0.9)');
+      gradient.addColorStop(0.7, 'rgba(135, 206, 235, 0.7)');
+      gradient.addColorStop(1, 'rgba(135, 206, 235, 0.3)');
+      
+      this.ctx.fillStyle = gradient;
+      this.ctx.beginPath();
+      this.ctx.arc(bubbleX, bubbleY, bubbleSize, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // 气泡高光
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      this.ctx.beginPath();
+      this.ctx.arc(bubbleX - bubbleSize * 0.3, bubbleY - bubbleSize * 0.3, bubbleSize * 0.3, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+  }
+
+  /**
+   * 渲染飞舞的蝴蝶
+   */
+  renderButterflies() {
+    const time = Date.now() * 0.003; // 较快的飞行速度
+    
+    // 定义多种蝴蝶颜色样式
+    const butterflyStyles = [
+      { wing: '#FF69B4', accent: '#FFB6C1', spots: '#FFF' }, // 粉色
+      { wing: '#9370DB', accent: '#DDA0DD', spots: '#FFF' }, // 紫色
+      { wing: '#FF6347', accent: '#FFA07A', spots: '#FFF' }, // 橙红色
+      { wing: '#32CD32', accent: '#98FB98', spots: '#FFF' }, // 绿色
+      { wing: '#1E90FF', accent: '#87CEEB', spots: '#FFF' }, // 蓝色
+      { wing: '#FFD700', accent: '#FFFFE0', spots: '#FF6347' } // 金色
+    ];
+    
+    for (let i = 0; i < 12; i++) {
+      const butterflyX = this.camera.x + (i * 120) + Math.sin(time + i * 2) * 60;
+      const butterflyY = this.camera.y + 200 + Math.sin(time * 1.5 + i) * 60 + Math.cos(time * 0.8 + i) * 40;
+      
+      const wingFlap = Math.sin(time * 8 + i) * 0.3; // 翅膀扇动
+      const style = butterflyStyles[i % butterflyStyles.length];
+      
+      this.ctx.save();
+      this.ctx.translate(butterflyX, butterflyY);
+      
+      // 蝴蝶身体
+      this.ctx.fillStyle = '#8B4513';
+      this.ctx.fillRect(-1, -8, 2, 16);
+      
+      // 蝴蝶触角
+      this.ctx.strokeStyle = '#8B4513';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(-1, -8);
+      this.ctx.lineTo(-3, -12);
+      this.ctx.moveTo(1, -8);
+      this.ctx.lineTo(3, -12);
+      this.ctx.stroke();
+      
+      // 左翅膀 - 主色
+      this.ctx.fillStyle = style.wing;
+      this.ctx.save();
+      this.ctx.rotate(wingFlap);
+      this.ctx.beginPath();
+      this.ctx.ellipse(-8, -3, 6, 4, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // 左翅膀 - 副色
+      this.ctx.fillStyle = style.accent;
+      this.ctx.beginPath();
+      this.ctx.ellipse(-6, 3, 4, 3, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+      
+      // 右翅膀 - 主色
+      this.ctx.fillStyle = style.wing;
+      this.ctx.save();
+      this.ctx.rotate(-wingFlap);
+      this.ctx.beginPath();
+      this.ctx.ellipse(8, -3, 6, 4, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // 右翅膀 - 副色
+      this.ctx.fillStyle = style.accent;
+      this.ctx.beginPath();
+      this.ctx.ellipse(6, 3, 4, 3, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+      
+      // 翅膀斑点
+      this.ctx.fillStyle = style.spots;
+      this.ctx.beginPath();
+      this.ctx.arc(-6, -3, 1, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.beginPath();
+      this.ctx.arc(6, -3, 1, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // 额外装饰斑点
+      if (i % 2 === 0) {
+        this.ctx.fillStyle = style.spots;
+        this.ctx.beginPath();
+        this.ctx.arc(-4, 2, 0.8, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(4, 2, 0.8, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+      
       this.ctx.restore();
     }
   }
@@ -588,24 +874,25 @@ class JumpGame {
    * 渲染UI
    */
   renderUI() {
+    // 分数显示位置调整到主题以下，与太阳平齐
     this.ctx.fillStyle = '#333';
     this.ctx.font = 'bold 24px Arial';
-    this.ctx.fillText(`分数: ${this.score}`, 20, 40);
+    this.ctx.fillText(`分数: ${this.score}`, 20, 120);
     
     if (this.combo > 0) {
       this.ctx.fillStyle = '#FF6B6B';
-      this.ctx.fillText(`连击: ${this.combo}`, 20, 70);
+      this.ctx.fillText(`连击: ${this.combo}`, 20, 150);
     }
     
     // 显示游戏状态和提示
     if (this.gameState === GAME_STATE.START) {
       this.ctx.fillStyle = '#666';
       this.ctx.font = '20px Arial';
-      this.ctx.fillText('点击屏幕开始蓄力跳跃', 20, this.canvas.height - 40);
+      this.ctx.fillText('点击屏幕开始蓄力跳跃', 20, this.logicalHeight - 40);
     } else if (this.gameState === GAME_STATE.CHARGING) {
       this.ctx.fillStyle = '#FF6B6B';
       this.ctx.font = '20px Arial';
-      this.ctx.fillText('蓄力中... 松开跳跃', 20, this.canvas.height - 40);
+      this.ctx.fillText('蓄力中... 松开跳跃', 20, this.logicalHeight - 40);
     }
   }
 
@@ -615,7 +902,7 @@ class JumpGame {
   renderChargeIndicator() {
     const barWidth = 200;
     const barHeight = 20;
-    const x = (this.canvas.width - barWidth) / 2;
+    const x = (this.logicalWidth - barWidth) / 2;
     const y = 100;
     
     // 背景
@@ -639,19 +926,25 @@ class JumpGame {
   renderGameOver() {
     // 半透明遮罩
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
     
-    // 游戏结束文本
-    this.ctx.fillStyle = '#FFF';
-    this.ctx.font = 'bold 36px Arial';
+    // 在遮罩上方继续显示气泡
+    this.ctx.save();
+    this.ctx.translate(-this.camera.x, -this.camera.y);
+    this.renderBubbles();
+    this.ctx.restore();
+    
+    // 游戏结束文字
+    this.ctx.fillStyle = 'white';
+    this.ctx.font = 'bold 48px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('游戏结束', this.canvas.width / 2, this.canvas.height / 2 - 50);
+    this.ctx.fillText('游戏结束', this.logicalWidth / 2, this.logicalHeight / 2 - 50);
+    
+    this.ctx.font = '32px Arial';
+    this.ctx.fillText(`最终分数: ${this.score}`, this.logicalWidth / 2, this.logicalHeight / 2);
     
     this.ctx.font = '24px Arial';
-    this.ctx.fillText(`最终分数: ${this.score}`, this.canvas.width / 2, this.canvas.height / 2);
-    
-    this.ctx.font = '18px Arial';
-    this.ctx.fillText('点击屏幕重新开始', this.canvas.width / 2, this.canvas.height / 2 + 50);
+    this.ctx.fillText('点击屏幕重新开始', this.logicalWidth / 2, this.logicalHeight / 2 + 50);
     
     this.ctx.textAlign = 'left';
   }
@@ -691,6 +984,13 @@ class Player {
     this.vy = 0;
     this.isJumping = false;
     this.size = CONFIG.PLAYER_SIZE;
+    this.squirrelImage = null;
+    this.loadSquirrelImage();
+  }
+
+  loadSquirrelImage() {
+    this.squirrelImage = new Image();
+    this.squirrelImage.src = 'images/squirrel.svg';
   }
 
   jump(power, horizontalSpeed) {
@@ -719,103 +1019,26 @@ class Player {
   }
 
   render(ctx) {
-    const centerX = this.x + this.size / 2;
-    const centerY = this.y + this.size / 2;
-    const scale = this.size / 30; // 缩放比例
-    
-    // 绘制森林小松鼠身体（椭圆形，棕色）
-    ctx.fillStyle = '#8B4513';
-    ctx.beginPath();
-    ctx.ellipse(centerX, centerY + 3 * scale, 10 * scale, 12 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#654321';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    
-    // 绘制肚子（浅棕色）
-    ctx.fillStyle = '#D2B48C';
-    ctx.beginPath();
-    ctx.ellipse(centerX, centerY + 5 * scale, 6 * scale, 8 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 绘制松鼠头部（圆形，棕色）
-    ctx.fillStyle = '#8B4513';
-    ctx.beginPath();
-    ctx.arc(centerX, centerY - 5 * scale, 8 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#654321';
-    ctx.stroke();
-    
-    // 绘制松鼠耳朵（尖尖的）
-    ctx.fillStyle = '#8B4513';
-    ctx.beginPath();
-    // 左耳
-    ctx.ellipse(centerX - 5 * scale, centerY - 11 * scale, 2 * scale, 4 * scale, -0.3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    // 右耳
-    ctx.beginPath();
-    ctx.ellipse(centerX + 5 * scale, centerY - 11 * scale, 2 * scale, 4 * scale, 0.3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    
-    // 绘制耳朵内侧（浅棕色）
-    ctx.fillStyle = '#D2B48C';
-    ctx.beginPath();
-    ctx.ellipse(centerX - 5 * scale, centerY - 11 * scale, 1 * scale, 2 * scale, -0.3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(centerX + 5 * scale, centerY - 11 * scale, 1 * scale, 2 * scale, 0.3, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 绘制大眼睛（黑色）
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.arc(centerX - 3 * scale, centerY - 6 * scale, 2 * scale, 0, Math.PI * 2);
-    ctx.arc(centerX + 3 * scale, centerY - 6 * scale, 2 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 绘制眼睛高光
-    ctx.fillStyle = '#FFF';
-    ctx.beginPath();
-    ctx.arc(centerX - 2.5 * scale, centerY - 6.5 * scale, 0.8 * scale, 0, Math.PI * 2);
-    ctx.arc(centerX + 3.5 * scale, centerY - 6.5 * scale, 0.8 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 绘制小鼻子（黑色）
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.arc(centerX, centerY - 3 * scale, 0.8 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 绘制嘴巴
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(centerX - 1.5 * scale, centerY - 1 * scale, 1.5 * scale, 0, Math.PI);
-    ctx.arc(centerX + 1.5 * scale, centerY - 1 * scale, 1.5 * scale, 0, Math.PI);
-    ctx.stroke();
-    
-    // 绘制蓬松的大尾巴
-    ctx.fillStyle = '#8B4513';
-    ctx.beginPath();
-    ctx.arc(centerX - 10 * scale, centerY + 5 * scale, 6 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#654321';
-    ctx.stroke();
-    
-    // 绘制尾巴高光
-    ctx.fillStyle = '#D2B48C';
-    ctx.beginPath();
-    ctx.arc(centerX - 12 * scale, centerY + 3 * scale, 3 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 绘制小爪子
-    ctx.fillStyle = '#654321';
-    ctx.beginPath();
-    ctx.ellipse(centerX - 4 * scale, centerY + 12 * scale, 1.5 * scale, 1 * scale, 0, 0, Math.PI * 2);
-    ctx.ellipse(centerX + 4 * scale, centerY + 12 * scale, 1.5 * scale, 1 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
+    if (this.squirrelImage && this.squirrelImage.complete) {
+      // 使用SVG图片渲染松鼠
+      ctx.drawImage(
+        this.squirrelImage,
+        this.x,
+        this.y,
+        this.size,
+        this.size
+      );
+    } else {
+      // 图片未加载完成时的备用渲染
+      ctx.fillStyle = CONFIG.PLAYER_COLOR;
+      ctx.fillRect(this.x, this.y, this.size, this.size);
+      
+      // 简单的松鼠形状作为备用
+      ctx.fillStyle = '#CD853F';
+      ctx.beginPath();
+      ctx.arc(this.x + this.size/2, this.y + this.size/2, this.size/3, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
 
@@ -832,26 +1055,8 @@ class Platform {
   }
 
   render(ctx) {
-    // 根据类型设置颜色和样式
-    switch (this.type) {
-      case PLATFORM_TYPE.BONUS:
-        // 金色奖励平台
-        ctx.fillStyle = '#FFD700';
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.fillRect(this.x, this.y, this.width, 3);
-        break;
-      case PLATFORM_TYPE.SPRING:
-        // 粉色弹簧平台
-        ctx.fillStyle = '#FF69B4';
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.fillRect(this.x, this.y, this.width, 3);
-        break;
-      default:
-        // 绿色草地平台
-        this.renderGrassland(ctx);
-    }
+    // 所有平台使用统一的草地样式
+    this.renderGrassland(ctx);
     
     // 绘制中心点标记（用于完美着陆）
     const centerX = this.x + this.width / 2;
@@ -904,7 +1109,7 @@ class Platform {
       ctx.fill();
     }
     
-    // 绘制小树苗
+    // 绘制小树苗（移除绿色圆圈叶子装饰）
     if (Math.cos(mushroomSeed) > 0.5) {
       const saplingX = this.x + this.width - 15;
       const saplingY = this.y - 2;
@@ -916,15 +1121,6 @@ class Platform {
       ctx.moveTo(saplingX, saplingY + 3);
       ctx.lineTo(saplingX, saplingY - 2);
       ctx.stroke();
-      
-      // 树苗叶子
-      ctx.fillStyle = '#32CD32';
-      ctx.beginPath();
-      ctx.arc(saplingX - 1, saplingY - 1, 1.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(saplingX + 1, saplingY, 1.5, 0, Math.PI * 2);
-      ctx.fill();
     }
     
     // 绘制落叶装饰

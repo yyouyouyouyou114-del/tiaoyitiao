@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500">
+  <!-- 松鼠身体 -->
+  <ellipse cx="200" cy="350" rx="70" ry="90" fill="#D2691E" stroke="#8B4513" stroke-width="2"/>
+  
+  <!-- 松鼠肚子 -->
+  <ellipse cx="200" cy="360" rx="45" ry="60" fill="#F5DEB3"/>
+  
+  <!-- 松鼠头部 -->
+  <ellipse cx="200" cy="220" rx="60" ry="55" fill="#D2691E" stroke="#8B4513" stroke-width="2"/>
+  
+  <!-- 松鼠耳朵 -->
+  <ellipse cx="170" cy="180" rx="18" ry="30" fill="#D2691E" stroke="#8B4513" stroke-width="2" transform="rotate(-15 170 180)"/>
+  <ellipse cx="230" cy="180" rx="18" ry="30" fill="#D2691E" stroke="#8B4513" stroke-width="2" transform="rotate(15 230 180)"/>
+  
+  <!-- 耳朵内部 -->
+  <ellipse cx="170" cy="185" rx="10" ry="18" fill="#F5DEB3" transform="rotate(-15 170 185)"/>
+  <ellipse cx="230" cy="185" rx="10" ry="18" fill="#F5DEB3" transform="rotate(15 230 185)"/>
+  
+  <!-- 松鼠眼睛 -->
+  <circle cx="180" cy="210" r="15" fill="white"/>
+  <circle cx="220" cy="210" r="15" fill="white"/>
+  <circle cx="182" cy="208" r="10" fill="black"/>
+  <circle cx="222" cy="208" r="10" fill="black"/>
+  <circle cx="184" cy="206" r="4" fill="white"/>
+  <circle cx="224" cy="206" r="4" fill="white"/>
+  
+  <!-- 松鼠鼻子 -->
+  <ellipse cx="200" cy="230" rx="5" ry="4" fill="black"/>
+  
+  <!-- 松鼠嘴巴 -->
+  <path d="M 200 235 Q 195 240 190 235" stroke="black" stroke-width="2" fill="none"/>
+  <path d="M 200 235 Q 205 240 210 235" stroke="black" stroke-width="2" fill="none"/>
+  
+  <!-- 松鼠尾巴 -->
+  <ellipse cx="110" cy="280" rx="35" ry="100" fill="#8B4513" stroke="#654321" stroke-width="2" transform="rotate(-25 110 280)"/>
+  <ellipse cx="105" cy="275" rx="28" ry="85" fill="#D2691E" transform="rotate(-25 105 275)"/>
+  
+  <!-- 松鼠前爪 -->
+  <ellipse cx="160" cy="400" rx="15" ry="25" fill="#D2691E" stroke="#8B4513" stroke-width="1"/>
+  <ellipse cx="240" cy="400" rx="15" ry="25" fill="#D2691E" stroke="#8B4513" stroke-width="1"/>
+  
+  <!-- 松鼠后爪 -->
+  <ellipse cx="170" cy="450" rx="18" ry="30" fill="#D2691E" stroke="#8B4513" stroke-width="1"/>
+  <ellipse cx="230" cy="450" rx="18" ry="30" fill="#D2691E" stroke="#8B4513" stroke-width="1"/>
+  
+  <!-- 脸颊红晕 -->
+  <circle cx="140" cy="225" r="10" fill="#FFB6C1" opacity="0.6"/>
+  <circle cx="260" cy="225" r="10" fill="#FFB6C1" opacity="0.6"/>
+  
+  <!-- 毛发纹理效果 -->
+  <path d="M 150 200 Q 160 190 170 200" stroke="#8B4513" stroke-width="1" fill="none"/>
+  <path d="M 230 200 Q 240 190 250 200" stroke="#8B4513" stroke-width="1" fill="none"/>
+  <path d="M 160 320 Q 170 310 180 320" stroke="#8B4513" stroke-width="1" fill="none"/>
+  <path d="M 220 320 Q 230 310 240 320" stroke="#8B4513" stroke-width="1" fill="none"/>
+</svg>
