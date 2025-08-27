@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, orientation=landscape">
+    <meta name="screen-orientation" content="landscape">
+    <meta name="x5-orientation" content="landscape">
+    <meta name="x5-fullscreen" content="true">
+    <meta name="360-fullscreen" content="true">
     <title>跳一跳 - 森林主题</title>
     <style>
         body {
@@ -20,6 +24,25 @@
             height: 100%;
             /* 强制横屏显示 */
             transform-origin: center;
+        }
+        
+        /* 强制横屏 - 竖屏时旋转90度 */
+        @media (orientation: portrait) {
+            body {
+                transform: rotate(90deg);
+                transform-origin: center center;
+                width: 100vh;
+                height: 100vw;
+                overflow: hidden;
+                position: fixed;
+                top: 0;
+                left: 0;
+            }
+            
+            #gameContainer {
+                width: 100vh;
+                height: 100vw;
+            }
         }
         
         #gameContainer {
@@ -208,6 +231,78 @@
     </div>
     
     <script>
+        // 强制横屏功能
+        function forceScreenOrientation() {
+            // 尝试使用Screen Orientation API
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(err => {
+                    console.log('Screen orientation lock failed:', err);
+                });
+            }
+            
+            // 检测并处理屏幕方向
+            function handleOrientationChange() {
+                const isPortrait = window.innerHeight > window.innerWidth;
+                const body = document.body;
+                
+                if (isPortrait) {
+                    // 竖屏时显示旋转提示
+                    if (!document.getElementById('rotateHint')) {
+                        const hint = document.createElement('div');
+                        hint.id = 'rotateHint';
+                        hint.innerHTML = '📱 请将手机横向旋转以获得最佳游戏体验';
+                        hint.style.cssText = `
+                            position: fixed;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            background: rgba(0, 0, 0, 0.9);
+                            color: white;
+                            padding: 20px;
+                            border-radius: 10px;
+                            font-size: 18px;
+                            text-align: center;
+                            z-index: 10000;
+                            max-width: 80%;
+                            line-height: 1.5;
+                            animation: pulse 2s infinite;
+                        `;
+                        document.body.appendChild(hint);
+                        
+                        // 添加脉冲动画
+                        const style = document.createElement('style');
+                        style.textContent = `
+                            @keyframes pulse {
+                                0% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+                                50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+                                100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+                            }
+                        `;
+                        document.head.appendChild(style);
+                    }
+                } else {
+                    // 横屏时移除提示
+                    const hint = document.getElementById('rotateHint');
+                    if (hint) {
+                        hint.remove();
+                    }
+                }
+            }
+            
+            // 监听屏幕方向变化
+            window.addEventListener('orientationchange', () => {
+                setTimeout(handleOrientationChange, 500);
+            });
+            
+            window.addEventListener('resize', handleOrientationChange);
+            
+            // 初始检查
+            handleOrientationChange();
+        }
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', forceScreenOrientation);
+        
         // Web环境适配
         window.GameGlobal = {
             canvas: document.getElementById('gameCanvas')
