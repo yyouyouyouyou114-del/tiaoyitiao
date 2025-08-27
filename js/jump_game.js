@@ -20,7 +20,7 @@ const CONFIG = {
   DIFFICULTY_FACTOR: 1.5,
   
   // 玩家参数
-  PLAYER_SIZE: 70,
+  PLAYER_SIZE: 90,
   PLAYER_COLOR: '#FF6B6B',
   
   // 游戏参数
@@ -127,21 +127,23 @@ class JumpGame {
       const isLandscape = screenWidth > screenHeight;
       
       if (isMobile) {
-        // 移动设备：完全自适应，支持横屏和竖屏
+        // 移动设备：优化横屏体验
         canvasWidth = screenWidth;
         canvasHeight = screenHeight;
         
-        // 横屏时调整游戏布局参数
+        // 专门为手机横屏优化
         if (isLandscape) {
-          // 横屏模式：增加平台间距，调整跳跃参数
-          CONFIG.BASE_DISTANCE = 120;
-          CONFIG.PLATFORM_WIDTH = 100;
+          // 横屏模式：优化平台布局和游戏参数
+          CONFIG.BASE_DISTANCE = Math.max(120, screenWidth * 0.15); // 根据屏幕宽度调整
+          CONFIG.PLATFORM_WIDTH = Math.max(100, screenWidth * 0.08);
           CONFIG.JUMP_FORCE = 18;
+          CONFIG.PLAYER_SIZE = Math.max(60, screenHeight * 0.12); // 根据屏幕高度调整角色大小
         } else {
-          // 竖屏模式：恢复默认参数
+          // 竖屏模式：显示旋转提示，但保持基本功能
           CONFIG.BASE_DISTANCE = 100;
           CONFIG.PLATFORM_WIDTH = 80;
           CONFIG.JUMP_FORCE = 15;
+          CONFIG.PLAYER_SIZE = 70;
         }
       } else {
         // 桌面设备：自适应窗口大小
@@ -172,9 +174,20 @@ class JumpGame {
     this.logicalWidth = canvasWidth;
     this.logicalHeight = canvasHeight;
     
-    // 根据屏幕方向调整地面高度
+    // 根据屏幕方向调整地面高度 - 横屏优化
     const isLandscape = canvasWidth > canvasHeight;
-    CONFIG.GROUND_Y = isLandscape ? this.logicalHeight * 0.7 : this.logicalHeight * 0.8;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile && isLandscape) {
+      // 手机横屏：地面位置更低，留出更多游戏空间
+      CONFIG.GROUND_Y = this.logicalHeight * 0.75;
+    } else if (isLandscape) {
+      // 桌面横屏
+      CONFIG.GROUND_Y = this.logicalHeight * 0.7;
+    } else {
+      // 竖屏模式
+      CONFIG.GROUND_Y = this.logicalHeight * 0.8;
+    }
     
     // 监听窗口大小变化和屏幕方向变化
     this.setupResizeHandler();
@@ -617,6 +630,9 @@ class JumpGame {
     // 绘制飞舞的蝴蝶
     this.renderButterflies();
     
+    // 绘制飞舞的花朵
+    this.renderFlowers();
+    
     // 绘制飘落的叶子
     this.renderFloatingLeaves();
     
@@ -697,18 +713,61 @@ class JumpGame {
   renderFloatingLeaves() {
     const time = Date.now() * 0.001;
     
+    // 定义不同类型的树叶颜色
+    const leafColors = [
+      '#228B22', // 深绿色
+      '#32CD32', // 酸橙绿
+      '#9ACD32', // 黄绿色
+      '#8FBC8F', // 深海绿
+      '#90EE90'  // 浅绿色
+    ];
+    
     for (let i = 0; i < 5; i++) {
       const x = this.camera.x + i * 200 + Math.sin(time + i) * 50;
       const y = this.camera.y + 150 + Math.sin(time * 0.5 + i) * 30;
       
-      // 叶子 - 增大尺寸
-      this.ctx.fillStyle = i % 2 === 0 ? '#228B22' : '#32CD32';
       this.ctx.save();
       this.ctx.translate(x, y);
       this.ctx.rotate(time + i);
+      
+      // 绘制树叶形状
+      this.ctx.fillStyle = leafColors[i % leafColors.length];
       this.ctx.beginPath();
-      this.ctx.ellipse(0, 0, 8, 15, 0, 0, Math.PI * 2);
+      
+      // 绘制树叶轮廓（心形叶子）
+      this.ctx.moveTo(0, -12);
+      this.ctx.bezierCurveTo(-8, -18, -15, -8, -8, 0);
+      this.ctx.bezierCurveTo(-15, 8, -8, 18, 0, 12);
+      this.ctx.bezierCurveTo(8, 18, 15, 8, 8, 0);
+      this.ctx.bezierCurveTo(15, -8, 8, -18, 0, -12);
       this.ctx.fill();
+      
+      // 绘制叶脉
+      this.ctx.strokeStyle = 'rgba(0, 100, 0, 0.6)';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      // 主叶脉
+      this.ctx.moveTo(0, -12);
+      this.ctx.lineTo(0, 12);
+      // 侧叶脉
+      this.ctx.moveTo(-4, -6);
+      this.ctx.lineTo(0, 0);
+      this.ctx.moveTo(4, -6);
+      this.ctx.lineTo(0, 0);
+      this.ctx.moveTo(-4, 6);
+      this.ctx.lineTo(0, 0);
+      this.ctx.moveTo(4, 6);
+      this.ctx.lineTo(0, 0);
+      this.ctx.stroke();
+      
+      // 添加叶柄
+      this.ctx.strokeStyle = '#8B4513';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, 12);
+      this.ctx.lineTo(0, 16);
+      this.ctx.stroke();
+      
       this.ctx.restore();
     }
   }
@@ -749,19 +808,51 @@ class JumpGame {
   renderBubbles() {
     const time = Date.now() * 0.002;
     
+    // 定义多种气泡颜色样式
+    const bubbleColors = [
+      {
+        inner: 'rgba(173, 216, 230, 0.9)',
+        middle: 'rgba(135, 206, 235, 0.7)',
+        outer: 'rgba(135, 206, 235, 0.3)'
+      }, // 蓝色气泡
+      {
+        inner: 'rgba(255, 182, 193, 0.9)',
+        middle: 'rgba(255, 105, 180, 0.7)',
+        outer: 'rgba(255, 105, 180, 0.3)'
+      }, // 粉色气泡
+      {
+        inner: 'rgba(144, 238, 144, 0.9)',
+        middle: 'rgba(50, 205, 50, 0.7)',
+        outer: 'rgba(50, 205, 50, 0.3)'
+      }, // 绿色气泡
+      {
+        inner: 'rgba(255, 218, 185, 0.9)',
+        middle: 'rgba(255, 165, 0, 0.7)',
+        outer: 'rgba(255, 165, 0, 0.3)'
+      }, // 橙色气泡
+      {
+        inner: 'rgba(221, 160, 221, 0.9)',
+        middle: 'rgba(147, 112, 219, 0.7)',
+        outer: 'rgba(147, 112, 219, 0.3)'
+      } // 紫色气泡
+    ];
+    
     for (let i = 0; i < 8; i++) {
       const bubbleX = this.camera.x + i * 120 + Math.sin(time * 0.8 + i) * 40;
       const bubbleY = this.camera.y + 300 + Math.sin(time * 0.5 + i) * 100;
       const bubbleSize = 8 + Math.sin(time * 2 + i) * 4;
+      
+      // 选择气泡颜色
+      const colorStyle = bubbleColors[i % bubbleColors.length];
       
       // 气泡渐变效果
       const gradient = this.ctx.createRadialGradient(
         bubbleX, bubbleY, 0,
         bubbleX, bubbleY, bubbleSize
       );
-      gradient.addColorStop(0, 'rgba(173, 216, 230, 0.9)');
-      gradient.addColorStop(0.7, 'rgba(135, 206, 235, 0.7)');
-      gradient.addColorStop(1, 'rgba(135, 206, 235, 0.3)');
+      gradient.addColorStop(0, colorStyle.inner);
+      gradient.addColorStop(0.7, colorStyle.middle);
+      gradient.addColorStop(1, colorStyle.outer);
       
       this.ctx.fillStyle = gradient;
       this.ctx.beginPath();
@@ -869,9 +960,74 @@ class JumpGame {
       this.ctx.restore();
     }
   }
-
+  
   /**
-   * 渲染UI
+   * 渲染飞舞的花朵
+   */
+  renderFlowers() {
+    const time = Date.now() * 0.002; // 较慢的飞行速度
+    
+    // 定义多种花朵颜色样式
+    const flowerStyles = [
+      { petal: '#FF69B4', center: '#FFD700' }, // 粉色花朵
+      { petal: '#FF1493', center: '#FFA500' }, // 深粉色花朵
+      { petal: '#FF6347', center: '#FFFF00' }, // 橙红色花朵
+      { petal: '#FF4500', center: '#FFD700' }, // 橙色花朵
+      { petal: '#9370DB', center: '#FFFFE0' }, // 紫色花朵
+      { petal: '#8A2BE2', center: '#FFD700' }, // 蓝紫色花朵
+      { petal: '#32CD32', center: '#FFFF00' }, // 绿色花朵
+      { petal: '#00FF7F', center: '#FFA500' }, // 春绿色花朵
+      { petal: '#1E90FF', center: '#FFD700' }, // 蓝色花朵
+      { petal: '#00BFFF', center: '#FFFFE0' }, // 深天蓝花朵
+      { petal: '#FFD700', center: '#FF6347' }, // 金色花朵
+      { petal: '#FFA500', center: '#FF1493' }  // 橙色花朵
+    ];
+    
+    for (let i = 0; i < 12; i++) {
+      const flowerX = this.camera.x + (i * 100) + Math.sin(time + i * 1.5) * 80;
+      const flowerY = this.camera.y + 150 + Math.sin(time * 1.2 + i * 0.8) * 70 + Math.cos(time * 0.6 + i * 1.2) * 50;
+      
+      const rotation = time * 2 + i * 0.5; // 花朵旋转
+      const scale = 0.8 + Math.sin(time * 3 + i) * 0.2; // 花朵大小变化
+      const style = flowerStyles[i % flowerStyles.length];
+      
+      this.ctx.save();
+      this.ctx.translate(flowerX, flowerY);
+      this.ctx.rotate(rotation);
+      this.ctx.scale(scale, scale);
+      
+      // 绘制花瓣（5片花瓣）
+      this.ctx.fillStyle = style.petal;
+      for (let petal = 0; petal < 5; petal++) {
+        this.ctx.save();
+        this.ctx.rotate((petal * Math.PI * 2) / 5);
+        
+        // 花瓣形状
+        this.ctx.beginPath();
+        this.ctx.ellipse(0, -8, 4, 8, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        this.ctx.restore();
+      }
+      
+      // 绘制花心
+      this.ctx.fillStyle = style.center;
+      this.ctx.beginPath();
+      this.ctx.arc(0, 0, 3, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // 绘制花心细节
+      this.ctx.fillStyle = '#8B4513';
+      this.ctx.beginPath();
+      this.ctx.arc(0, 0, 1, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      this.ctx.restore();
+    }
+  }
+  
+  /**
+   * 渲染UI界面
    */
   renderUI() {
     // 分数显示位置调整到主题以下，与太阳平齐

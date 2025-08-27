@@ -315,9 +315,32 @@ class AudioManager {
    */
   toggleSound() {
     this.soundEnabled = !this.soundEnabled;
+    console.log('音频状态切换为:', this.soundEnabled ? '启用' : '禁用');
+    
     if (!this.soundEnabled) {
+      // 禁用音频时停止所有音效
       this.stopBackgroundMusic();
+      
+      // 如果有正在播放的音效，也要停止
+      if (this.audioContext) {
+        try {
+          // 暂停音频上下文以停止所有音效
+          if (this.audioContext.state === 'running') {
+            this.audioContext.suspend();
+          }
+        } catch (e) {
+          console.warn('Failed to suspend audio context:', e);
+        }
+      }
+    } else {
+      // 启用音频时恢复音频上下文
+      if (this.audioContext && this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(e => {
+          console.warn('Failed to resume audio context:', e);
+        });
+      }
     }
+    
     return this.soundEnabled;
   }
 }

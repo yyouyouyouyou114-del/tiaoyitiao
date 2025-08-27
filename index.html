@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, orientation=landscape">
     <title>跳一跳 - 森林主题</title>
     <style>
         body {
@@ -18,6 +18,8 @@
             position: fixed;
             width: 100%;
             height: 100%;
+            /* 强制横屏显示 */
+            transform-origin: center;
         }
         
         #gameContainer {
@@ -44,7 +46,7 @@
             object-fit: contain;
         }
         
-        /* 移动设备优化 */
+        /* 移动设备优化 - 强制横屏 */
         @media (max-width: 768px) {
             #gameContainer {
                 border-radius: 0;
@@ -54,6 +56,26 @@
             
             #gameCanvas {
                 border-radius: 0;
+            }
+        }
+        
+        /* 竖屏时提示用户旋转屏幕 */
+        @media (orientation: portrait) and (max-width: 768px) {
+            body::before {
+                content: "请将设备旋转至横屏模式以获得最佳游戏体验";
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 20px;
+                border-radius: 10px;
+                font-size: 16px;
+                text-align: center;
+                z-index: 9999;
+                max-width: 80%;
+                line-height: 1.5;
             }
         }
         
@@ -270,6 +292,11 @@
                     if (window.AudioManager) {
                         gameInstance.audioManager = new window.AudioManager();
                         console.log('AudioManager重新初始化成功');
+                        // 恢复音频上下文
+                        await gameInstance.audioManager.resumeAudioContext();
+                        // 更新显示
+                        updateAudioStatus();
+                        return;
                     }
                 } catch (error) {
                     console.error('AudioManager初始化失败:', error);
@@ -279,19 +306,24 @@
             }
             
             if (gameInstance.audioManager) {
-                // 恢复音频上下文
-                await gameInstance.audioManager.resumeAudioContext();
+                // 恢复音频上下文（如果需要）
+                if (gameInstance.audioManager.audioContext && gameInstance.audioManager.audioContext.state === 'suspended') {
+                    await gameInstance.audioManager.resumeAudioContext();
+                }
                 
                 // 切换音效开关
+                const wasEnabled = gameInstance.audioManager.soundEnabled;
                 gameInstance.audioManager.toggleSound();
                 
                 // 更新显示
                 updateAudioStatus();
                 
-                // 播放测试音效
-                if (gameInstance.audioManager.soundEnabled) {
+                // 播放测试音效（仅在从禁用切换到启用时）
+                if (!wasEnabled && gameInstance.audioManager.soundEnabled) {
                     gameInstance.audioManager.playJumpSound();
                 }
+                
+                console.log('音频状态已切换为:', gameInstance.audioManager.soundEnabled ? '启用' : '禁用');
             }
         }
         
