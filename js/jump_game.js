@@ -73,6 +73,9 @@ class JumpGame {
     
     // 音频管理器（延迟初始化）
     this.audioManager = null;
+    
+    // 手机端功能
+    this.enableVibration = false;
   }
 
   /**
@@ -100,7 +103,7 @@ class JumpGame {
   }
 
   /**
-   * 设置Canvas
+   * 设置Canvas - 专门优化手机横屏体验
    */
   setupCanvas() {
     this.canvas = GameGlobal.canvas;
@@ -127,34 +130,64 @@ class JumpGame {
       const isLandscape = screenWidth > screenHeight;
       
       if (isMobile) {
-        // 移动设备：优化横屏体验
+        // 移动设备：专门优化手机体验
         canvasWidth = screenWidth;
         canvasHeight = screenHeight;
         
-        // 专门为手机横屏优化
+        // 手机横屏模式专门优化
         if (isLandscape) {
-          // 横屏模式：优化平台布局和游戏参数
-          CONFIG.BASE_DISTANCE = Math.max(120, screenWidth * 0.15); // 根据屏幕宽度调整
-          CONFIG.PLATFORM_WIDTH = Math.max(100, screenWidth * 0.08);
-          CONFIG.JUMP_FORCE = 18;
-          CONFIG.PLAYER_SIZE = Math.max(60, screenHeight * 0.12); // 根据屏幕高度调整角色大小
-        } else {
-          // 竖屏模式：显示旋转提示，但保持基本功能
-          CONFIG.BASE_DISTANCE = 100;
-          CONFIG.PLATFORM_WIDTH = 80;
-          CONFIG.JUMP_FORCE = 15;
-          CONFIG.PLAYER_SIZE = 70;
-        }
+          // 手机横屏：根据屏幕尺寸动态调整游戏参数
+          const screenRatio = screenWidth / screenHeight;
+          
+          // 根据屏幕比例调整游戏参数
+          if (screenRatio > 2.0) {
+            // 超宽屏手机（如折叠屏）
+            CONFIG.BASE_DISTANCE = Math.max(180, screenWidth * 0.08);
+            CONFIG.PLATFORM_WIDTH = Math.max(100, screenWidth * 0.05);
+            CONFIG.JUMP_FORCE = 25;
+            CONFIG.PLAYER_SIZE = Math.max(60, screenHeight * 0.08);
+            CONFIG.GRAVITY = 0.8;
+          } else if (screenRatio > 1.8) {
+            // 标准横屏手机
+            CONFIG.BASE_DISTANCE = Math.max(150, screenWidth * 0.1);
+            CONFIG.PLATFORM_WIDTH = Math.max(90, screenWidth * 0.06);
+            CONFIG.JUMP_FORCE = 22;
+            CONFIG.PLAYER_SIZE = Math.max(55, screenHeight * 0.09);
+            CONFIG.GRAVITY = 0.75;
+          } else {
+            // 较窄的横屏手机
+            CONFIG.BASE_DISTANCE = Math.max(120, screenWidth * 0.12);
+            CONFIG.PLATFORM_WIDTH = Math.max(80, screenWidth * 0.07);
+            CONFIG.JUMP_FORCE = 20;
+            CONFIG.PLAYER_SIZE = Math.max(50, screenHeight * 0.1);
+            CONFIG.GRAVITY = 0.7;
+          }
+          
+          // 手机横屏特殊优化
+          CONFIG.GROUND_Y = this.logicalHeight * 0.85; // 地面位置更低
+          CONFIG.PERFECT_TOLERANCE = 8; // 增加完美着陆容差
+                 } else {
+           // 竖屏模式：优化为竖屏游戏体验
+           CONFIG.BASE_DISTANCE = Math.max(80, screenWidth * 0.15);
+           CONFIG.PLATFORM_WIDTH = Math.max(60, screenWidth * 0.08);
+           CONFIG.JUMP_FORCE = 18;
+           CONFIG.PLAYER_SIZE = Math.max(40, screenHeight * 0.08);
+           CONFIG.GRAVITY = 0.65;
+           CONFIG.GROUND_Y = this.logicalHeight * 0.85;
+           CONFIG.PERFECT_TOLERANCE = 6;
+         }
       } else {
-        // 桌面设备：自适应窗口大小
+        // 桌面设备：模拟手机横屏体验
         canvasWidth = screenWidth;
         canvasHeight = screenHeight;
         
         // 桌面横屏优化
         if (isLandscape && screenWidth > 1024) {
-          CONFIG.BASE_DISTANCE = 140;
+          CONFIG.BASE_DISTANCE = 160;
           CONFIG.PLATFORM_WIDTH = 120;
-          CONFIG.JUMP_FORCE = 20;
+          CONFIG.JUMP_FORCE = 22;
+          CONFIG.PLAYER_SIZE = 80;
+          CONFIG.GRAVITY = 0.7;
         }
       }
     }
@@ -174,16 +207,16 @@ class JumpGame {
     this.logicalWidth = canvasWidth;
     this.logicalHeight = canvasHeight;
     
-    // 根据屏幕方向调整地面高度 - 横屏优化
+    // 根据屏幕方向调整地面高度
     const isLandscape = canvasWidth > canvasHeight;
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     if (isMobile && isLandscape) {
       // 手机横屏：地面位置更低，留出更多游戏空间
-      CONFIG.GROUND_Y = this.logicalHeight * 0.75;
+      CONFIG.GROUND_Y = this.logicalHeight * 0.85;
     } else if (isLandscape) {
       // 桌面横屏
-      CONFIG.GROUND_Y = this.logicalHeight * 0.7;
+      CONFIG.GROUND_Y = this.logicalHeight * 0.75;
     } else {
       // 竖屏模式
       CONFIG.GROUND_Y = this.logicalHeight * 0.8;
@@ -268,19 +301,32 @@ class JumpGame {
   }
 
   /**
-   * 绑定事件
+   * 绑定事件 - 手机端触摸优化
    */
   bindEvents() {
+    // 检测是否为手机设备
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
     // 绑定触摸事件到canvas
     this.canvas.addEventListener('touchstart', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       this.handleTouchStart(e.changedTouches[0]);
-    });
+    }, { passive: false });
     
     this.canvas.addEventListener('touchend', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       this.handleTouchEnd(e.changedTouches[0]);
-    });
+    }, { passive: false });
+    
+    // 手机端添加触摸移动事件优化
+    if (isMobile) {
+      this.canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, { passive: false });
+    }
     
     // Web环境也绑定鼠标事件作为备用
     this.canvas.addEventListener('mousedown', (e) => {
@@ -302,6 +348,11 @@ class JumpGame {
       wx.onTouchEnd((e) => {
         this.handleTouchEnd(e.changedTouches[0]);
       });
+    }
+    
+    // 手机端添加震动反馈
+    if (isMobile && typeof wx !== 'undefined' && wx.vibrateShort) {
+      this.enableVibration = true;
     }
   }
 
@@ -454,6 +505,10 @@ class JumpGame {
       if (this.audioManager) {
         this.audioManager.playPerfectLandingSound();
       }
+      // 手机端震动反馈
+      if (this.enableVibration && typeof wx !== 'undefined' && wx.vibrateShort) {
+        wx.vibrateShort({ type: 'medium' });
+      }
     } else {
       // 普通着陆
       this.combo = 0;
@@ -461,11 +516,19 @@ class JumpGame {
       if (this.audioManager) {
         this.audioManager.playLandingSound();
       }
+      // 手机端震动反馈
+      if (this.enableVibration && typeof wx !== 'undefined' && wx.vibrateShort) {
+        wx.vibrateShort({ type: 'light' });
+      }
     }
     
     // 处理特殊平台
     if (platform.type === PLATFORM_TYPE.BONUS) {
       this.score += 5;
+      // 奖励平台震动反馈
+      if (this.enableVibration && typeof wx !== 'undefined' && wx.vibrateShort) {
+        wx.vibrateShort({ type: 'medium' });
+      }
     }
   }
 
@@ -546,8 +609,10 @@ class JumpGame {
       this.audioManager.playGameOverSound();
       this.audioManager.stopBackgroundMusic();
     }
-    // 可以添加震动效果
-    // wx.vibrateShort({ type: 'heavy' });
+    // 手机端震动反馈
+    if (this.enableVibration && typeof wx !== 'undefined' && wx.vibrateShort) {
+      wx.vibrateShort({ type: 'heavy' });
+    }
   }
 
   /**
@@ -707,11 +772,11 @@ class JumpGame {
     }
   }
   
-  /**
-   * 渲染飘落的叶子
-   */
-  renderFloatingLeaves() {
-    const time = Date.now() * 0.001;
+     /**
+    * 渲染飘落的叶子 - 优化为上半部分飞舞
+    */
+   renderFloatingLeaves() {
+     const time = Date.now() * 0.0005; // 降低运动速度
     
     // 定义不同类型的树叶颜色
     const leafColors = [
@@ -722,24 +787,29 @@ class JumpGame {
       '#90EE90'  // 浅绿色
     ];
     
-    for (let i = 0; i < 5; i++) {
-      const x = this.camera.x + i * 200 + Math.sin(time + i) * 50;
-      const y = this.camera.y + 150 + Math.sin(time * 0.5 + i) * 30;
-      
-      this.ctx.save();
-      this.ctx.translate(x, y);
-      this.ctx.rotate(time + i);
+         // 叶子在屏幕上半部分飞舞（0-50%的区域）
+     for (let i = 0; i < 12; i++) {
+       const x = this.camera.x + (i * this.logicalWidth / 12) + Math.sin(time + i) * 100;
+       const y = this.camera.y + this.logicalHeight * 0.1 + Math.sin(time * 0.8 + i) * (this.logicalHeight * 0.3) + Math.cos(time * 0.6 + i) * 60;
+       
+       this.ctx.save();
+       this.ctx.translate(x, y);
+       this.ctx.rotate(time + i);
+       
+       // 增大叶子尺寸
+       const leafScale = 1.5; // 增大1.5倍
+       this.ctx.scale(leafScale, leafScale);
       
       // 绘制树叶形状
       this.ctx.fillStyle = leafColors[i % leafColors.length];
       this.ctx.beginPath();
       
       // 绘制树叶轮廓（心形叶子）
-      this.ctx.moveTo(0, -12);
-      this.ctx.bezierCurveTo(-8, -18, -15, -8, -8, 0);
-      this.ctx.bezierCurveTo(-15, 8, -8, 18, 0, 12);
-      this.ctx.bezierCurveTo(8, 18, 15, 8, 8, 0);
-      this.ctx.bezierCurveTo(15, -8, 8, -18, 0, -12);
+      this.ctx.moveTo(0, -10);
+      this.ctx.bezierCurveTo(-6, -15, -12, -6, -6, 0);
+      this.ctx.bezierCurveTo(-12, 6, -6, 15, 0, 10);
+      this.ctx.bezierCurveTo(6, 15, 12, 6, 6, 0);
+      this.ctx.bezierCurveTo(12, -6, 6, -15, 0, -10);
       this.ctx.fill();
       
       // 绘制叶脉
@@ -747,16 +817,16 @@ class JumpGame {
       this.ctx.lineWidth = 1;
       this.ctx.beginPath();
       // 主叶脉
-      this.ctx.moveTo(0, -12);
-      this.ctx.lineTo(0, 12);
+      this.ctx.moveTo(0, -10);
+      this.ctx.lineTo(0, 10);
       // 侧叶脉
-      this.ctx.moveTo(-4, -6);
+      this.ctx.moveTo(-3, -5);
       this.ctx.lineTo(0, 0);
-      this.ctx.moveTo(4, -6);
+      this.ctx.moveTo(3, -5);
       this.ctx.lineTo(0, 0);
-      this.ctx.moveTo(-4, 6);
+      this.ctx.moveTo(-3, 5);
       this.ctx.lineTo(0, 0);
-      this.ctx.moveTo(4, 6);
+      this.ctx.moveTo(3, 5);
       this.ctx.lineTo(0, 0);
       this.ctx.stroke();
       
@@ -764,8 +834,8 @@ class JumpGame {
       this.ctx.strokeStyle = '#8B4513';
       this.ctx.lineWidth = 2;
       this.ctx.beginPath();
-      this.ctx.moveTo(0, 12);
-      this.ctx.lineTo(0, 16);
+      this.ctx.moveTo(0, 10);
+      this.ctx.lineTo(0, 14);
       this.ctx.stroke();
       
       this.ctx.restore();
@@ -803,10 +873,10 @@ class JumpGame {
   }
 
   /**
-   * 渲染气泡
+   * 渲染气泡 - 优化为下半部分飞舞
    */
-  renderBubbles() {
-    const time = Date.now() * 0.002;
+     renderBubbles() {
+     const time = Date.now() * 0.001; // 降低运动速度
     
     // 定义多种气泡颜色样式
     const bubbleColors = [
@@ -837,10 +907,11 @@ class JumpGame {
       } // 紫色气泡
     ];
     
-    for (let i = 0; i < 8; i++) {
-      const bubbleX = this.camera.x + i * 120 + Math.sin(time * 0.8 + i) * 40;
-      const bubbleY = this.camera.y + 300 + Math.sin(time * 0.5 + i) * 100;
-      const bubbleSize = 8 + Math.sin(time * 2 + i) * 4;
+    // 气泡在屏幕下半部分飞舞（50-100%的区域）
+    for (let i = 0; i < 15; i++) {
+      const bubbleX = this.camera.x + (i * this.logicalWidth / 15) + Math.sin(time * 0.8 + i) * 80;
+      const bubbleY = this.camera.y + this.logicalHeight * 0.6 + Math.sin(time * 0.6 + i) * (this.logicalHeight * 0.3) + Math.cos(time * 0.4 + i) * 50;
+      const bubbleSize = 8 + Math.sin(time * 2 + i) * 4; // 增大气泡尺寸
       
       // 选择气泡颜色
       const colorStyle = bubbleColors[i % bubbleColors.length];
@@ -867,11 +938,11 @@ class JumpGame {
     }
   }
 
-  /**
-   * 渲染飞舞的蝴蝶
-   */
-  renderButterflies() {
-    const time = Date.now() * 0.003; // 较快的飞行速度
+     /**
+    * 渲染飞舞的蝴蝶 - 优化为上半部分飞舞
+    */
+   renderButterflies() {
+     const time = Date.now() * 0.0015; // 降低运动速度
     
     // 定义多种蝴蝶颜色样式
     const butterflyStyles = [
@@ -883,9 +954,10 @@ class JumpGame {
       { wing: '#FFD700', accent: '#FFFFE0', spots: '#FF6347' } // 金色
     ];
     
-    for (let i = 0; i < 12; i++) {
-      const butterflyX = this.camera.x + (i * 120) + Math.sin(time + i * 2) * 60;
-      const butterflyY = this.camera.y + 200 + Math.sin(time * 1.5 + i) * 60 + Math.cos(time * 0.8 + i) * 40;
+    // 蝴蝶在屏幕上半部分飞舞（0-50%的区域）
+    for (let i = 0; i < 10; i++) {
+      const butterflyX = this.camera.x + (i * this.logicalWidth / 10) + Math.sin(time + i * 2) * 120;
+      const butterflyY = this.camera.y + this.logicalHeight * 0.05 + Math.sin(time * 1.2 + i) * (this.logicalHeight * 0.25) + Math.cos(time * 0.7 + i) * 80;
       
       const wingFlap = Math.sin(time * 8 + i) * 0.3; // 翅膀扇动
       const style = butterflyStyles[i % butterflyStyles.length];
@@ -893,18 +965,22 @@ class JumpGame {
       this.ctx.save();
       this.ctx.translate(butterflyX, butterflyY);
       
+      // 增大蝴蝶尺寸
+      const butterflyScale = 1.3; // 增大1.3倍
+      this.ctx.scale(butterflyScale, butterflyScale);
+      
       // 蝴蝶身体
       this.ctx.fillStyle = '#8B4513';
-      this.ctx.fillRect(-1, -8, 2, 16);
+      this.ctx.fillRect(-1, -6, 2, 12);
       
       // 蝴蝶触角
       this.ctx.strokeStyle = '#8B4513';
       this.ctx.lineWidth = 1;
       this.ctx.beginPath();
-      this.ctx.moveTo(-1, -8);
-      this.ctx.lineTo(-3, -12);
-      this.ctx.moveTo(1, -8);
-      this.ctx.lineTo(3, -12);
+      this.ctx.moveTo(-1, -6);
+      this.ctx.lineTo(-2, -9);
+      this.ctx.moveTo(1, -6);
+      this.ctx.lineTo(2, -9);
       this.ctx.stroke();
       
       // 左翅膀 - 主色
@@ -912,13 +988,13 @@ class JumpGame {
       this.ctx.save();
       this.ctx.rotate(wingFlap);
       this.ctx.beginPath();
-      this.ctx.ellipse(-8, -3, 6, 4, 0, 0, Math.PI * 2);
+      this.ctx.ellipse(-6, -2, 4, 3, 0, 0, Math.PI * 2);
       this.ctx.fill();
       
       // 左翅膀 - 副色
       this.ctx.fillStyle = style.accent;
       this.ctx.beginPath();
-      this.ctx.ellipse(-6, 3, 4, 3, 0, 0, Math.PI * 2);
+      this.ctx.ellipse(-4, 2, 3, 2, 0, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.restore();
       
@@ -927,33 +1003,33 @@ class JumpGame {
       this.ctx.save();
       this.ctx.rotate(-wingFlap);
       this.ctx.beginPath();
-      this.ctx.ellipse(8, -3, 6, 4, 0, 0, Math.PI * 2);
+      this.ctx.ellipse(6, -2, 4, 3, 0, 0, Math.PI * 2);
       this.ctx.fill();
       
       // 右翅膀 - 副色
       this.ctx.fillStyle = style.accent;
       this.ctx.beginPath();
-      this.ctx.ellipse(6, 3, 4, 3, 0, 0, Math.PI * 2);
+      this.ctx.ellipse(4, 2, 3, 2, 0, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.restore();
       
       // 翅膀斑点
       this.ctx.fillStyle = style.spots;
       this.ctx.beginPath();
-      this.ctx.arc(-6, -3, 1, 0, Math.PI * 2);
+      this.ctx.arc(-4, -2, 0.8, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.beginPath();
-      this.ctx.arc(6, -3, 1, 0, Math.PI * 2);
+      this.ctx.arc(4, -2, 0.8, 0, Math.PI * 2);
       this.ctx.fill();
       
       // 额外装饰斑点
       if (i % 2 === 0) {
         this.ctx.fillStyle = style.spots;
         this.ctx.beginPath();
-        this.ctx.arc(-4, 2, 0.8, 0, Math.PI * 2);
+        this.ctx.arc(-3, 1, 0.6, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.beginPath();
-        this.ctx.arc(4, 2, 0.8, 0, Math.PI * 2);
+        this.ctx.arc(3, 1, 0.6, 0, Math.PI * 2);
         this.ctx.fill();
       }
       
@@ -962,10 +1038,10 @@ class JumpGame {
   }
   
   /**
-   * 渲染飞舞的花朵
+   * 渲染飞舞的花朵 - 优化为上半部分飞舞
    */
-  renderFlowers() {
-    const time = Date.now() * 0.002; // 较慢的飞行速度
+     renderFlowers() {
+     const time = Date.now() * 0.001; // 降低运动速度
     
     // 定义多种花朵颜色样式
     const flowerStyles = [
@@ -983,12 +1059,14 @@ class JumpGame {
       { petal: '#FFA500', center: '#FF1493' }  // 橙色花朵
     ];
     
-    for (let i = 0; i < 12; i++) {
-      const flowerX = this.camera.x + (i * 100) + Math.sin(time + i * 1.5) * 80;
-      const flowerY = this.camera.y + 150 + Math.sin(time * 1.2 + i * 0.8) * 70 + Math.cos(time * 0.6 + i * 1.2) * 50;
+    // 花朵在屏幕上半部分飞舞（0-50%的区域）
+    for (let i = 0; i < 8; i++) {
+      const flowerX = this.camera.x + (i * this.logicalWidth / 8) + Math.sin(time + i * 1.5) * 150;
+      const flowerY = this.camera.y + this.logicalHeight * 0.15 + Math.sin(time * 1.1 + i * 0.8) * (this.logicalHeight * 0.2) + Math.cos(time * 0.5 + i * 1.2) * 100;
       
       const rotation = time * 2 + i * 0.5; // 花朵旋转
-      const scale = 0.8 + Math.sin(time * 3 + i) * 0.2; // 花朵大小变化
+      const baseScale = 0.8; // 增大基础尺寸
+      const scale = baseScale + Math.sin(time * 3 + i) * 0.15; // 花朵大小变化
       const style = flowerStyles[i % flowerStyles.length];
       
       this.ctx.save();
@@ -1004,7 +1082,7 @@ class JumpGame {
         
         // 花瓣形状
         this.ctx.beginPath();
-        this.ctx.ellipse(0, -8, 4, 8, 0, 0, Math.PI * 2);
+        this.ctx.ellipse(0, -6, 3, 6, 0, 0, Math.PI * 2);
         this.ctx.fill();
         
         this.ctx.restore();
@@ -1013,13 +1091,13 @@ class JumpGame {
       // 绘制花心
       this.ctx.fillStyle = style.center;
       this.ctx.beginPath();
-      this.ctx.arc(0, 0, 3, 0, Math.PI * 2);
+      this.ctx.arc(0, 0, 2, 0, Math.PI * 2);
       this.ctx.fill();
       
       // 绘制花心细节
       this.ctx.fillStyle = '#8B4513';
       this.ctx.beginPath();
-      this.ctx.arc(0, 0, 1, 0, Math.PI * 2);
+      this.ctx.arc(0, 0, 0.8, 0, Math.PI * 2);
       this.ctx.fill();
       
       this.ctx.restore();
@@ -1027,42 +1105,83 @@ class JumpGame {
   }
   
   /**
-   * 渲染UI界面
+   * 渲染UI界面 - 手机端优化
    */
   renderUI() {
-    // 分数显示位置调整到主题以下，与太阳平齐
-    this.ctx.fillStyle = '#333';
-    this.ctx.font = 'bold 24px Arial';
-    this.ctx.fillText(`分数: ${this.score}`, 20, 120);
+    // 检测是否为手机设备
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isLandscape = this.logicalWidth > this.logicalHeight;
     
-    if (this.combo > 0) {
-      this.ctx.fillStyle = '#FF6B6B';
-      this.ctx.fillText(`连击: ${this.combo}`, 20, 150);
-    }
+    // 根据设备类型调整字体大小
+    const scoreFontSize = isMobile ? (isLandscape ? 28 : 24) : 24;
+    const comboFontSize = isMobile ? (isLandscape ? 22 : 20) : 20;
+    const tipFontSize = isMobile ? (isLandscape ? 18 : 16) : 20;
     
-    // 显示游戏状态和提示
+         // 分数显示位置调整 - 手机端优化
+     this.ctx.fillStyle = '#333';
+     this.ctx.font = `bold ${scoreFontSize}px Arial`;
+     
+     // 手机端将分数显示向左移动，避免与蓄力长条重叠
+     const scoreX = isMobile ? (isLandscape ? 15 : 8) : 20;
+     this.ctx.fillText(`分数: ${this.score}`, scoreX, 120);
+     
+     if (this.combo > 0) {
+       this.ctx.fillStyle = '#FF6B6B';
+       this.ctx.font = `bold ${comboFontSize}px Arial`;
+       this.ctx.fillText(`连击: ${this.combo}`, scoreX, 150);
+     }
+    
+         // 显示游戏状态和提示 - 手机端优化位置
+     const tipY = isMobile ? (isLandscape ? this.logicalHeight - 60 : this.logicalHeight - 80) : this.logicalHeight - 40;
+    
     if (this.gameState === GAME_STATE.START) {
       this.ctx.fillStyle = '#666';
-      this.ctx.font = '20px Arial';
-      this.ctx.fillText('点击屏幕开始蓄力跳跃', 20, this.logicalHeight - 40);
+      this.ctx.font = `${tipFontSize}px Arial`;
+      this.ctx.fillText('点击屏幕开始蓄力跳跃', 20, tipY);
     } else if (this.gameState === GAME_STATE.CHARGING) {
       this.ctx.fillStyle = '#FF6B6B';
-      this.ctx.font = '20px Arial';
-      this.ctx.fillText('蓄力中... 松开跳跃', 20, this.logicalHeight - 40);
+      this.ctx.font = `${tipFontSize}px Arial`;
+      this.ctx.fillText('蓄力中... 松开跳跃', 20, tipY);
     }
   }
 
-  /**
-   * 渲染蓄力指示器
-   */
-  renderChargeIndicator() {
-    const barWidth = 200;
-    const barHeight = 20;
-    const x = (this.logicalWidth - barWidth) / 2;
-    const y = 100;
+     /**
+    * 渲染蓄力指示器 - 手机端优化
+    */
+   renderChargeIndicator() {
+     // 检测是否为手机设备
+     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+     const isLandscape = this.logicalWidth > this.logicalHeight;
+     
+     // 根据设备类型调整指示器大小
+     const barWidth = isMobile ? (isLandscape ? 220 : 180) : 200; // 缩短手机端蓄力长条
+     const barHeight = isMobile ? (isLandscape ? 25 : 20) : 20;
+     
+     // 手机端将蓄力长条调整位置，避免与分数重叠且不超出边界
+     let x;
+     if (isMobile) {
+       if (isLandscape) {
+         // 横屏模式：适度向右移动，确保不超出边界
+         const minOffset = 60; // 减少最小偏移量
+         const dynamicOffset = this.logicalWidth * 0.05; // 减少动态偏移量
+         const maxX = this.logicalWidth - barWidth - 20; // 确保不超出右边界
+         x = Math.min((this.logicalWidth - barWidth) / 2 + Math.max(minOffset, dynamicOffset), maxX);
+       } else {
+         // 竖屏模式：适度向右移动，确保不超出边界
+         const minOffset = 70; // 减少最小偏移量
+         const dynamicOffset = this.logicalWidth * 0.08; // 减少动态偏移量
+         const maxX = this.logicalWidth - barWidth - 15; // 确保不超出右边界
+         x = Math.min((this.logicalWidth - barWidth) / 2 + Math.max(minOffset, dynamicOffset), maxX);
+       }
+     } else {
+       // 桌面模式：居中显示
+       x = (this.logicalWidth - barWidth) / 2;
+     }
+     
+     const y = isMobile ? (isLandscape ? 120 : 140) : 100;
     
     // 背景
-    this.ctx.fillStyle = '#DDD';
+    this.ctx.fillStyle = 'rgba(221, 221, 221, 0.8)';
     this.ctx.fillRect(x, y, barWidth, barHeight);
     
     // 蓄力条
@@ -1072,14 +1191,28 @@ class JumpGame {
     
     // 边框
     this.ctx.strokeStyle = '#333';
-    this.ctx.lineWidth = 2;
+    this.ctx.lineWidth = isMobile ? 3 : 2;
     this.ctx.strokeRect(x, y, barWidth, barHeight);
+    
+    // 手机端添加蓄力百分比显示
+    if (isMobile) {
+      const percentage = Math.round((this.chargePower / CONFIG.MAX_POWER) * 100);
+      this.ctx.fillStyle = '#333';
+      this.ctx.font = `${isLandscape ? 16 : 14}px Arial`;
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(`${percentage}%`, x + barWidth / 2, y + barHeight + 20);
+      this.ctx.textAlign = 'left';
+    }
   }
 
   /**
-   * 渲染游戏结束界面
+   * 渲染游戏结束界面 - 手机端优化
    */
   renderGameOver() {
+    // 检测是否为手机设备
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isLandscape = this.logicalWidth > this.logicalHeight;
+    
     // 半透明遮罩
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
@@ -1090,16 +1223,21 @@ class JumpGame {
     this.renderBubbles();
     this.ctx.restore();
     
+    // 根据设备类型调整字体大小
+    const titleFontSize = isMobile ? (isLandscape ? 42 : 36) : 48;
+    const scoreFontSize = isMobile ? (isLandscape ? 28 : 24) : 32;
+    const tipFontSize = isMobile ? (isLandscape ? 20 : 18) : 24;
+    
     // 游戏结束文字
     this.ctx.fillStyle = 'white';
-    this.ctx.font = 'bold 48px Arial';
+    this.ctx.font = `bold ${titleFontSize}px Arial`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText('游戏结束', this.logicalWidth / 2, this.logicalHeight / 2 - 50);
     
-    this.ctx.font = '32px Arial';
+    this.ctx.font = `bold ${scoreFontSize}px Arial`;
     this.ctx.fillText(`最终分数: ${this.score}`, this.logicalWidth / 2, this.logicalHeight / 2);
     
-    this.ctx.font = '24px Arial';
+    this.ctx.font = `${tipFontSize}px Arial`;
     this.ctx.fillText('点击屏幕重新开始', this.logicalWidth / 2, this.logicalHeight / 2 + 50);
     
     this.ctx.textAlign = 'left';
@@ -1144,10 +1282,23 @@ class Player {
     this.loadSquirrelImage();
   }
 
-  loadSquirrelImage() {
-    this.squirrelImage = new Image();
-    this.squirrelImage.src = 'images/squirrel.svg';
-  }
+     loadSquirrelImage() {
+     // 检查环境是否支持Image构造函数
+     if (typeof Image !== 'undefined') {
+       this.squirrelImage = new Image();
+       this.squirrelImage.onload = () => {
+         console.log('松鼠图像加载成功');
+       };
+       this.squirrelImage.onerror = () => {
+         console.warn('松鼠图像加载失败，使用备用渲染');
+         this.squirrelImage = null;
+       };
+       this.squirrelImage.src = 'images/squirrel.svg';
+     } else {
+       console.warn('Image构造函数不可用，使用备用渲染');
+       this.squirrelImage = null;
+     }
+   }
 
   jump(power, horizontalSpeed) {
     this.vy = -CONFIG.JUMP_FORCE * power;

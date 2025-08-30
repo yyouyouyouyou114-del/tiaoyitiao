@@ -2,9 +2,9 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, orientation=landscape">
-    <meta name="screen-orientation" content="landscape">
-    <meta name="x5-orientation" content="landscape">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="screen-orientation" content="auto">
+    <meta name="x5-orientation" content="auto">
     <meta name="x5-fullscreen" content="true">
     <meta name="360-fullscreen" content="true">
     <title>跳一跳 - 森林主题</title>
@@ -22,27 +22,25 @@
             position: fixed;
             width: 100%;
             height: 100%;
-            /* 强制横屏显示 */
+            /* 移除强制横屏显示，允许正常旋转 */
             transform-origin: center;
         }
         
-        /* 强制横屏 - 竖屏时旋转90度 */
-        @media (orientation: portrait) {
+        /* 手机端横屏优化 - 完全移除旋转提示 */
+        @media (orientation: portrait) and (max-width: 768px) {
             body {
-                transform: rotate(90deg);
-                transform-origin: center center;
-                width: 100vh;
-                height: 100vw;
-                overflow: hidden;
-                position: fixed;
-                top: 0;
-                left: 0;
+                /* 允许正常旋转，不强制竖屏 */
+                transform: none;
+                width: 100vw;
+                height: 100vh;
             }
             
             #gameContainer {
-                width: 100vh;
-                height: 100vw;
+                width: 100vw;
+                height: 100vh;
             }
+            
+            /* 完全移除旋转提示，让游戏在竖屏下也能正常显示 */
         }
         
         #gameContainer {
@@ -69,56 +67,51 @@
             object-fit: contain;
         }
         
-        /* 移动设备优化 - 强制横屏 */
+        /* 移动设备优化 - 微信小游戏横屏模式 */
         @media (max-width: 768px) {
             #gameContainer {
-                border-radius: 0;
-                width: 100vw;
-                height: 100vh;
+                border-radius: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                max-width: none !important;
+                max-height: none !important;
+                overflow: hidden !important;
             }
             
             #gameCanvas {
-                border-radius: 0;
+                border-radius: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                max-width: none !important;
+                max-height: none !important;
+                display: block !important;
             }
         }
         
-        /* 竖屏时提示用户旋转屏幕 */
-        @media (orientation: portrait) and (max-width: 768px) {
-            body::before {
-                content: "请将设备旋转至横屏模式以获得最佳游戏体验";
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: rgba(0, 0, 0, 0.8);
-                color: white;
-                padding: 20px;
-                border-radius: 10px;
-                font-size: 16px;
-                text-align: center;
-                z-index: 9999;
-                max-width: 80%;
-                line-height: 1.5;
-            }
-        }
-        
-        /* 横屏优化 */
+        /* 横屏优化 - 微信小游戏模式 */
         @media (orientation: landscape) {
             body {
                 height: 100vh;
                 width: 100vw;
+                overflow: hidden;
             }
             
             #gameContainer {
-                width: 100vw;
-                height: 100vh;
-                border-radius: 0;
+                width: 100vw !important;
+                height: 100vh !important;
+                border-radius: 0 !important;
+                max-width: none !important;
+                max-height: none !important;
+                overflow: hidden !important;
             }
             
             #gameCanvas {
-                border-radius: 0;
-                width: 100vw;
-                height: 100vh;
+                border-radius: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                max-width: none !important;
+                max-height: none !important;
+                display: block !important;
             }
         }
         
@@ -231,61 +224,34 @@
     </div>
     
     <script>
-        // 强制横屏功能
-        function forceScreenOrientation() {
-            // 尝试使用Screen Orientation API
+        // 屏幕方向处理功能 - 移除强制锁定
+        function handleScreenOrientation() {
+            // 移除强制横屏锁定，允许用户自由旋转
+            // 只在支持的情况下尝试锁定，但不强制
             if (screen.orientation && screen.orientation.lock) {
+                // 尝试锁定横屏，但不阻止用户手动旋转
                 screen.orientation.lock('landscape').catch(err => {
-                    console.log('Screen orientation lock failed:', err);
+                    console.log('Screen orientation lock failed (this is normal):', err);
                 });
             }
             
             // 检测并处理屏幕方向
             function handleOrientationChange() {
                 const isPortrait = window.innerHeight > window.innerWidth;
-                const body = document.body;
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                 
-                if (isPortrait) {
-                    // 竖屏时显示旋转提示
-                    if (!document.getElementById('rotateHint')) {
-                        const hint = document.createElement('div');
-                        hint.id = 'rotateHint';
-                        hint.innerHTML = '📱 请将手机横向旋转以获得最佳游戏体验';
-                        hint.style.cssText = `
-                            position: fixed;
-                            top: 50%;
-                            left: 50%;
-                            transform: translate(-50%, -50%);
-                            background: rgba(0, 0, 0, 0.9);
-                            color: white;
-                            padding: 20px;
-                            border-radius: 10px;
-                            font-size: 18px;
-                            text-align: center;
-                            z-index: 10000;
-                            max-width: 80%;
-                            line-height: 1.5;
-                            animation: pulse 2s infinite;
-                        `;
-                        document.body.appendChild(hint);
-                        
-                        // 添加脉冲动画
-                        const style = document.createElement('style');
-                        style.textContent = `
-                            @keyframes pulse {
-                                0% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
-                                50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
-                                100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
-                            }
-                        `;
-                        document.head.appendChild(style);
-                    }
-                } else {
-                    // 横屏时移除提示
-                    const hint = document.getElementById('rotateHint');
-                    if (hint) {
-                        hint.remove();
-                    }
+                // 完全移除旋转提示，让游戏在任何方向都能正常显示
+                // 移除任何现有的旋转提示
+                const hint = document.getElementById('rotateHint');
+                if (hint) {
+                    hint.remove();
+                }
+                
+                // 重新调整游戏画布大小
+                if (window.gameInstance && window.gameInstance.handleResize) {
+                    setTimeout(() => {
+                        window.gameInstance.handleResize();
+                    }, 300);
                 }
             }
             
@@ -301,7 +267,7 @@
         }
         
         // 页面加载完成后执行
-        document.addEventListener('DOMContentLoaded', forceScreenOrientation);
+        document.addEventListener('DOMContentLoaded', handleScreenOrientation);
         
         // Web环境适配
         window.GameGlobal = {
@@ -345,6 +311,9 @@
                 
                 // 创建游戏实例
                 gameInstance = new window.JumpGame();
+                
+                // 将游戏实例暴露到全局，以便屏幕方向变化时重新调整
+                window.gameInstance = gameInstance;
                 
                 // 启动游戏
                 gameInstance.init();
